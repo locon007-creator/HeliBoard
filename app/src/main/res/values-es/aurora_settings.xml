@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aurora_settings_intro">Configura tu teclado en pocos pasos.</string>
+    <string name="aurora_settings_typing">Escritura e idiomas</string>
+    <string name="aurora_settings_personalize">Apariencia y herramientas</string>
+    <string name="aurora_settings_more">Más ajustes</string>
+    <string name="aurora_settings_more_description">Diseños, escritura por gestos, opciones avanzadas e información</string>
+    <string name="aurora_settings_languages_description">Inglés, español y diseños del teclado</string>
+    <string name="aurora_settings_correction_description">Predicciones, autocorrección y palabras aprendidas</string>
+    <string name="aurora_settings_preferences_description">Fila de números, teclas e historial del portapapeles</string>
+    <string name="aurora_settings_appearance_description">Temas, colores y tamaño del teclado</string>
+    <string name="aurora_settings_toolbar_description">Personaliza los accesos directos sobre las teclas</string>
+    <string name="aurora_settings_dictionary_description">Instala y administra diccionarios sin conexión</string>
+</resources>
