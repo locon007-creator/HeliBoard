@@ -48,6 +48,15 @@ class AuroraLayoutTests(unittest.TestCase):
         self.assertIn('"es-419"', app)
         self.assertIn('"en-US"', app)
 
+    def test_learning_user_words_enabled_only_if_not_previously_set(self):
+        app = (ROOT / 'app/src/main/java/helium314/keyboard/latin/App.kt').read_text()
+        engine = (ROOT / 'app/src/main/java/helium314/keyboard/latin/DictionaryFacilitatorImpl.kt').read_text()
+        self.assertIn('configureAuroraLearning()', app)
+        self.assertIn('preferences.contains(Settings.PREF_ADD_TO_PERSONAL_DICTIONARY)', app)
+        self.assertIn('putBoolean(Settings.PREF_ADD_TO_PERSONAL_DICTIONARY, true)', app)
+        self.assertIn('sv.mAddToPersonalDictionary', engine)
+        self.assertIn('UserHistoryDictionary.addToDictionary', engine)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
