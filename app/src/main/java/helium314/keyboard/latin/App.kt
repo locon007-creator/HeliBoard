@@ -4,13 +4,17 @@ package helium314.keyboard.latin
 import android.app.Application
 import android.os.Build
 import helium314.keyboard.keyboard.emoji.SupportedEmojis
+import helium314.keyboard.latin.common.Constants.Subtype.ExtraValue
 import helium314.keyboard.latin.define.DebugFlags
 import helium314.keyboard.latin.settings.Defaults
 import helium314.keyboard.latin.settings.Settings
+import helium314.keyboard.latin.settings.SettingsSubtype.Companion.toSettingsSubtype
 import helium314.keyboard.latin.utils.FoldableUtils
 import helium314.keyboard.latin.utils.LayoutUtilsCustom
 import helium314.keyboard.latin.utils.Log
 import helium314.keyboard.latin.utils.SubtypeSettings
+import helium314.keyboard.latin.utils.SubtypeUtilsAdditional
+import helium314.keyboard.latin.utils.locale
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.latin.utils.upgradeToolbarPrefs
 import java.util.Locale
@@ -49,11 +53,14 @@ class App : Application() {
         Defaults.initDynamicDefaults(this)
     }
 
-    /** Enable the agreed languages once, without overriding later user choices. */
+    /** Initialize agreed languages once, then configure the secondary dictionaries once.
+     * Upgrading an existing Aurora installation must not reactivate languages the user disabled.
+     */
     private fun configureAuroraLanguages() {
         val preferences = prefs()
         val initializedKey = "aurora_languages_initialized_v1"
-        if (preferences.getBoolean(initializedKey, false)) return
+        val bilingualKey = "aurora_languages_initialized_v2"
+        if (preferences.getBoolean(bilingualKey, false)) return
 
         val english = SubtypeSettings.getResourceSubtypesForLocale(Locale.US).firstOrNull()
         val latinAmericanSpanish = SubtypeSettings.getResourceSubtypesForLocale(
@@ -64,15 +71,36 @@ class App : Application() {
             return
         }
 
-        val enabled = SubtypeSettings.getEnabledSubtypes(false)
-        if (english !in enabled) SubtypeSettings.addEnabledSubtype(preferences, english)
-        if (latinAmericanSpanish !in enabled) {
-            SubtypeSettings.addEnabledSubtype(preferences, latinAmericanSpanish)
+        if (!preferences.getBoolean(initializedKey, false)) {
+            val enabled = SubtypeSettings.getEnabledSubtypes(false)
+            if (english !in enabled) SubtypeSettings.addEnabledSubtype(preferences, english)
+            if (latinAmericanSpanish !in enabled) {
+                SubtypeSettings.addEnabledSubtype(preferences, latinAmericanSpanish)
+            }
+            if (!preferences.contains(Settings.PREF_SELECTED_SUBTYPE)) {
+                SubtypeSettings.setSelectedSubtype(preferences, english)
+            }
+            preferences.edit().putBoolean(initializedKey, true).apply()
         }
-        if (!preferences.contains(Settings.PREF_SELECTED_SUBTYPE)) {
-            SubtypeSettings.setSelectedSubtype(preferences, english)
+
+        // Merely enabling two languages makes users switch keyboards. SecondaryLocales is
+        // the existing dictionary engine's actual mechanism for simultaneous suggestions.
+        fun addSecondaryLanguage(mainTag: String, secondaryTag: String) {
+            val subtype = SubtypeSettings.getEnabledSubtypes(false)
+                .firstOrNull { it.locale().toLanguageTag() == mainTag } ?: return
+            val original = subtype.toSettingsSubtype()
+            val configured = original.getExtraValueOf(ExtraValue.SECONDARY_LOCALES)
+                ?.split(":").orEmpty().filter { it.isNotBlank() }
+            if (secondaryTag in configured) return
+            val updated = original.with(
+                ExtraValue.SECONDARY_LOCALES,
+                (configured + secondaryTag).distinct().joinToString(":")
+            )
+            SubtypeUtilsAdditional.changeAdditionalSubtype(original, updated, this)
         }
-        preferences.edit().putBoolean(initializedKey, true).apply()
+        addSecondaryLanguage("en-US", "es-419")
+        addSecondaryLanguage("es-419", "en-US")
+        preferences.edit().putBoolean(bilingualKey, true).apply()
     }
 
     companion object {
