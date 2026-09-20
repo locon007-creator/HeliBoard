@@ -56,7 +56,7 @@ jobs:
           PY
 
       - name: Run Android unit tests (fail build on regression)
-        run: ./gradlew testRunTestsUnitTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build with Gradle
         run: ./gradlew assembleDebug
@@ -73,7 +73,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aurora-unit-test-results
-          path: app/build/test-results/testRunTestsUnitTest
+          path: app/build/test-results/testDebugUnitTest
           if-no-files-found: warn
 
       - name: Archive reports for failed job
