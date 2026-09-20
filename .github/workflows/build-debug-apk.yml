@@ -55,6 +55,9 @@ jobs:
           print('Aurora Next suggestion engine: two equal slots, bounded indexes, patch verified')
           PY
 
+      - name: Run Android unit tests (fail build on regression)
+        run: ./gradlew testRunTestsUnitTest --stacktrace
+
       - name: Build with Gradle
         run: ./gradlew assembleDebug
 
@@ -64,6 +67,14 @@ jobs:
           name: AuroraNext-debug
           path: app/build/outputs/apk/debug/*-debug*.apk
           if-no-files-found: error
+
+      - name: Archive unit-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-unit-test-results
+          path: app/build/test-results/testRunTestsUnitTest
+          if-no-files-found: warn
 
       - name: Archive reports for failed job
         uses: actions/upload-artifact@v4
