@@ -492,6 +492,16 @@ public final class InputLogic {
         if (GestureDataGatheringKt.useBackgroundGathering && mWordComposer.isComposingWord() && mWordComposer.isCursorFrontOrMiddleOfComposingWord())
             BackgroundGatheringCache.INSTANCE.onEditWord(mWordComposer.getTypedWord());
 
+        // A Hangul combiner consumes character events. When editing inside an old
+        // composing word, finish that composition before combining the new input,
+        // otherwise the full word is duplicated at the insertion cursor.
+        if ("hangul".equals(mWordComposer.getCombiningSpec())
+                && mWordComposer.isComposingWord()
+                && mWordComposer.isCursorFrontOrMiddleOfComposingWord()
+                && event.getCodePoint() > 0 && !event.isFunctionalKeyEvent()) {
+            resetEntireInputState(mConnection.getExpectedSelectionStart(),
+                    mConnection.getExpectedSelectionEnd(), true /* clearSuggestionStrip */);
+        }
         Event processedEvent = mWordComposer.processEvent(event);
         InputTransaction inputTransaction = new InputTransaction(settingsValues,
                 processedEvent, SystemClock.uptimeMillis(), mSpaceState,
