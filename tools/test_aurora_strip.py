@@ -38,6 +38,16 @@ class AuroraLayoutTests(unittest.TestCase):
         self.assertIn('SubtypeSettings.addEnabledSubtype', app)
         self.assertIn('es-419', app)
 
+    def test_both_dictionaries_can_predict_without_language_switching(self):
+        app = (ROOT / 'app/src/main/java/helium314/keyboard/latin/App.kt').read_text()
+        engine = (ROOT / 'app/src/main/java/helium314/keyboard/latin/DictionaryFacilitatorImpl.kt').read_text()
+        self.assertIn('ExtraValue.SECONDARY_LOCALES', app)
+        self.assertIn('SubtypeUtilsAdditional.changeAdditionalSubtype', app)
+        self.assertIn('"aurora_languages_initialized_v2"', app)
+        self.assertIn('getSecondaryLocales(selectedSubtype.extraValue)', engine)
+        self.assertIn('"es-419"', app)
+        self.assertIn('"en-US"', app)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
