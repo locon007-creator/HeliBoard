@@ -13,8 +13,8 @@ android {
         applicationId = "helium314.keyboard"
         minSdk = 21
         targetSdk = 37
-        versionCode = 4101
-        versionName = "4.1"
+        versionCode = 4102
+        versionName = "4.1.1"
         ndk {
             abiFilters.clear()
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
@@ -86,7 +86,6 @@ android {
 
     packaging {
         jniLibs {
-            // shrinks APK by 3 MB, zipped size unchanged
             useLegacyPackaging = true
         }
     }
@@ -102,7 +101,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // see https://github.com/HeliBorg/HeliBoard/issues/477
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
@@ -115,27 +113,20 @@ android {
 }
 
 dependencies {
-    // androidx
-    implementation("androidx.core:core-ktx:1.17.0") // 1.18.0 requires minSdk 23
+    implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.autofill:autofill:1.3.0")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
-
-    // kotlin
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-
-    // compose
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-    implementation(platform("androidx.compose:compose-bom:2025.11.01")) // newer requires minSdk 23
+    implementation(platform("androidx.compose:compose-bom:2025.11.01"))
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     "debugNoMinifyImplementation"("androidx.compose.ui:ui-tooling")
     implementation("androidx.navigation:navigation-compose:2.9.8")
-    implementation("sh.calvin.reorderable:reorderable:3.1.0") // for easier re-ordering
-    implementation("com.github.skydoves:colorpicker-compose:1.1.3") // for user-defined colors, newer requires minSdk 23
-
-    // test
+    implementation("sh.calvin.reorderable:reorderable:3.1.0")
+    implementation("com.github.skydoves:colorpicker-compose:1.1.3")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
