@@ -13,6 +13,7 @@ import helium314.keyboard.latin.utils.Log
 import helium314.keyboard.latin.utils.SubtypeSettings
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.latin.utils.upgradeToolbarPrefs
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,11 +41,38 @@ class App : Application() {
 
         RichInputMethodManager.init(this)
         checkVersionUpgrade(this)
+        configureAuroraLanguages()
         if (BuildConfig.DEBUG) // do this on every debug apk start because we may work on adding a new toolbar key
             upgradeToolbarPrefs(prefs())
         transferOldPinnedClips(this) // todo: remove in a few months, maybe end 2026
         app = this
         Defaults.initDynamicDefaults(this)
+    }
+
+    /** Enable the agreed languages once, without overriding later user choices. */
+    private fun configureAuroraLanguages() {
+        val preferences = prefs()
+        val initializedKey = "aurora_languages_initialized_v1"
+        if (preferences.getBoolean(initializedKey, false)) return
+
+        val english = SubtypeSettings.getResourceSubtypesForLocale(Locale.US).firstOrNull()
+        val latinAmericanSpanish = SubtypeSettings.getResourceSubtypesForLocale(
+            Locale.forLanguageTag("es-419")
+        ).firstOrNull()
+        if (english == null || latinAmericanSpanish == null) {
+            Log.w("Aurora", "English or Latin American Spanish subtype unavailable; leaving settings intact")
+            return
+        }
+
+        val enabled = SubtypeSettings.getEnabledSubtypes(false)
+        if (english !in enabled) SubtypeSettings.addEnabledSubtype(preferences, english)
+        if (latinAmericanSpanish !in enabled) {
+            SubtypeSettings.addEnabledSubtype(preferences, latinAmericanSpanish)
+        }
+        if (!preferences.contains(Settings.PREF_SELECTED_SUBTYPE)) {
+            SubtypeSettings.setSelectedSubtype(preferences, english)
+        }
+        preferences.edit().putBoolean(initializedKey, true).apply()
     }
 
     companion object {
