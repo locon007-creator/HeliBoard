@@ -53,7 +53,9 @@ jobs:
             PACKAGE=helium314.keyboard.auroranext
             adb shell pm path "$PACKAGE" | tee audit/package.txt
             grep -F 'package:' audit/package.txt
-            adb shell am start -W -n "$PACKAGE/helium314.keyboard.settings.SettingsActivity" | tee audit/start-settings.txt
+            adb shell dumpsys package "$PACKAGE" > audit/package-dump.txt
+            adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" | tee audit/resolved-launcher.txt
+            adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" | tee audit/start-settings.txt
             sleep 5
             adb shell pidof "$PACKAGE" | tee audit/settings-process.txt
             grep -Eq '[0-9]+' audit/settings-process.txt
@@ -64,8 +66,8 @@ jobs:
             sleep 2
             adb exec-out screencap -p > audit/settings-scrolled.png
             adb shell ime list -s | tee audit/ime-services.txt
-            IME="$PACKAGE/helium314.keyboard.latin.LatinIME"
-            grep -F "$IME" audit/ime-services.txt
+            IME=$(grep -F "$PACKAGE/" audit/ime-services.txt | head -n 1 | tr -d '\r')
+            test -n "$IME"
             adb shell ime enable "$IME" | tee audit/ime-enable.txt
             adb shell ime set "$IME" | tee audit/ime-set.txt
             adb shell dumpsys input_method > audit/input-method-dump.txt
