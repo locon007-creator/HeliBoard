@@ -125,12 +125,8 @@ final class SuggestionStripLayoutHelper {
         mColorSuggested = colors.get(ColorType.SUGGESTED_WORD);
         final int colorMoreSuggestionsHint = colors.get(ColorType.MORE_SUGGESTIONS_HINT);
 
-        mSuggestionsCountInStrip = a.getInt(
-                R.styleable.SuggestionStripView_suggestionsCountInStrip,
-                DEFAULT_SUGGESTIONS_COUNT_IN_STRIP);
-        mCenterSuggestionWeight = ResourceUtils.getFraction(a,
-                R.styleable.SuggestionStripView_centerSuggestionPercentile,
-                DEFAULT_CENTER_SUGGESTION_PERCENTILE);
+        mSuggestionsCountInStrip = 2; // Aurora Next: exactly two suggestions.
+        mCenterSuggestionWeight = 0.50f; // Both suggestions are equally wide.
         mMaxMoreSuggestionsRow = a.getInt(
                 R.styleable.SuggestionStripView_maxMoreSuggestionsRow,
                 DEFAULT_MAX_MORE_SUGGESTIONS_ROW);
@@ -473,7 +469,7 @@ final class SuggestionStripLayoutHelper {
                 && count < maxSuggestionInStrip; indexInSuggestedWords++) {
             final int positionInStrip =
                     getPositionInSuggestionStrip(indexInSuggestedWords, suggestedWords);
-            if (positionInStrip < 0) {
+            if (positionInStrip < 0 || positionInStrip >= maxSuggestionInStrip) {
                 continue;
             }
             final TextView wordView = mWordViews.get(positionInStrip);
