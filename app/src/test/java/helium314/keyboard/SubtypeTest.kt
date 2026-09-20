@@ -39,33 +39,35 @@ class SubtypeTest {
     }
 
     @Test fun emptyAdditionalSubtypesResultsInEmptyList() {
-        // avoid issues where empty string results in additional subtype for undefined locale
         val prefs = latinIME.prefs()
         prefs.edit().putString(Settings.PREF_ADDITIONAL_SUBTYPES, "").apply()
         assertTrue(SubtypeSettings.getAdditionalSubtypes().isEmpty())
         val from = SubtypeSettings.getResourceSubtypesForLocale("es".constructLocale()).first()
-
-        // no change, and "changed" subtype actually is resource subtype -> still expect empty list
         SubtypeUtilsAdditional.changeAdditionalSubtype(from.toSettingsSubtype(), from.toSettingsSubtype(), latinIME)
         assertEquals(emptyList(), SubtypeSettings.getAdditionalSubtypes().map { it.toSettingsSubtype() })
     }
 
     @Test fun subtypeStaysEnabledOnEdits() {
         val prefs = latinIME.prefs()
-        prefs.edit().putString(Settings.PREF_ADDITIONAL_SUBTYPES, "").apply() // clear it for convenience
-
-        // edit enabled resource subtype
+        prefs.edit().putString(Settings.PREF_ADDITIONAL_SUBTYPES, "").apply()
         val from = SubtypeSettings.getResourceSubtypesForLocale("es".constructLocale()).first()
         SubtypeSettings.addEnabledSubtype(prefs, from)
+        val before = SubtypeSettings.getEnabledSubtypes(false).map { it.toSettingsSubtype() }
+        assertTrue(from.toSettingsSubtype() in before)
+
         val to = from.toSettingsSubtype().withLayout(LayoutType.SYMBOLS, "symbols_arabic")
         SubtypeUtilsAdditional.changeAdditionalSubtype(from.toSettingsSubtype(), to, latinIME)
-        assertEquals(to, SubtypeSettings.getEnabledSubtypes(false).single().toSettingsSubtype())
+        val enabledAfterEdit = SubtypeSettings.getEnabledSubtypes(false).map { it.toSettingsSubtype() }
+        assertTrue(to in enabledAfterEdit, "Edited Spanish subtype must stay enabled")
+        assertEquals(before.size, enabledAfterEdit.size, "Editing Spanish must not remove or duplicate other languages")
+        assertEquals(before.filterNot { it == from.toSettingsSubtype() }.toSet(), enabledAfterEdit.filterNot { it == to }.toSet())
 
-        // change the new subtype to effectively be the same as original resource subtype
         val toNew = to.withoutLayout(LayoutType.SYMBOLS)
         assertEquals(from.toSettingsSubtype(), toNew)
         SubtypeUtilsAdditional.changeAdditionalSubtype(to, toNew, latinIME)
         assertEquals(emptyList(), SubtypeSettings.getAdditionalSubtypes().map { it.toSettingsSubtype() })
-        assertEquals(from.toSettingsSubtype(), SubtypeSettings.getEnabledSubtypes(false).single().toSettingsSubtype())
+        val enabledRestored = SubtypeSettings.getEnabledSubtypes(false).map { it.toSettingsSubtype() }
+        assertTrue(from.toSettingsSubtype() in enabledRestored)
+        assertEquals(before.toSet(), enabledRestored.toSet(), "Restoring Spanish must preserve both enabled languages")
     }
 }
