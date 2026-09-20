@@ -27,7 +27,7 @@ jobs:
         run: |
           chmod +x gradlew
           if ./gradlew :app:testDebugUnitTest --tests 'helium314.keyboard.latin.InputLogicTest.insertLetterIntoWordHangulFails' --stacktrace; then
-            echo 'Baseline test already passes; refusing to apply an unnecessary patch.'
+            echo 'Baseline test already passes; refusing unnecessary patch.'
             exit 1
           fi
       - name: Repair Hangul cursor edit in tracked Android source
@@ -36,30 +36,30 @@ jobs:
           from pathlib import Path
           path = Path('app/src/main/java/helium314/keyboard/latin/inputlogic/InputLogic.java')
           old = '        Event processedEvent = mWordComposer.processEvent(event);'
-          replacement = '''        // Hangul consumes character events inside its combiner. If the cursor was moved
-        // into an existing composing word, reprocessing the whole word here would replace
-        // text at the insertion point and duplicate the original prefix. Finish the old
-        // composition before letting the combiner handle the newly inserted character.
-        // Scope this to Hangul character input; keep backspace, shift and other combiners intact.
-        if ("hangul".equals(mWordComposer.getCombiningSpec())
-                && mWordComposer.isComposingWord()
-                && mWordComposer.isCursorFrontOrMiddleOfComposingWord()
-                && event.getCodePoint() > 0 && !event.isFunctionalKeyEvent()) {
-            resetEntireInputState(mConnection.getExpectedSelectionStart(),
-                    mConnection.getExpectedSelectionEnd(), true /* clearSuggestionStrip */);
-        }
-        Event processedEvent = mWordComposer.processEvent(event);'''
+          lines = [
+              '        // A Hangul combiner consumes character events. When editing inside an old',
+              '        // composing word, finish that composition before combining the new input,',
+              '        // otherwise the full word is duplicated at the insertion cursor.',
+              '        if ("hangul".equals(mWordComposer.getCombiningSpec())',
+              '                && mWordComposer.isComposingWord()',
+              '                && mWordComposer.isCursorFrontOrMiddleOfComposingWord()',
+              '                && event.getCodePoint() > 0 && !event.isFunctionalKeyEvent()) {',
+              '            resetEntireInputState(mConnection.getExpectedSelectionStart(),',
+              '                    mConnection.getExpectedSelectionEnd(), true /* clearSuggestionStrip */);',
+              '        }',
+              old,
+          ]
           source = path.read_text()
-          assert source.count(old) == 1, 'InputLogic insertion anchor not unique; refusing unsafe repair'
-          assert 'Hangul consumes character events inside its combiner' not in source, 'Repair already present'
-          path.write_text(source.replace(old, replacement, 1))
-          print('Patched InputLogic.java source; regression test must validate behavior before commit.')
+          assert source.count(old) == 1, 'Ambiguous InputLogic insertion anchor'
+          assert 'A Hangul combiner consumes character events.' not in source, 'Repair already present'
+          path.write_text(source.replace(old, '\n'.join(lines), 1))
+          print('Patched tracked InputLogic.java; regression tests now required before commit.')
           PY
       - name: Verify exact previously failing test
         run: ./gradlew :app:testDebugUnitTest --tests 'helium314.keyboard.latin.InputLogicTest.insertLetterIntoWordHangulFails' --stacktrace
       - name: Verify all Android unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
-      - name: Build debug APK after all tests pass
+      - name: Build APK after all tests pass
         run: ./gradlew :app:assembleDebug --stacktrace
       - name: Commit tested source repair
         run: |
@@ -69,14 +69,14 @@ jobs:
           git diff --cached --check
           git commit -m 'Fix Hangul insertion after moving cursor within composition'
           git push origin HEAD:main
-      - name: Archive complete unit-test reports
+      - name: Archive unit-test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: aurora-hangul-repair-test-reports
           path: app/build/test-results/testDebugUnitTest/
           if-no-files-found: warn
-      - name: Archive unreleased debug APK for further emulator testing
+      - name: Archive unreleased APK for emulator verification
         if: success()
         uses: actions/upload-artifact@v4
         with:
