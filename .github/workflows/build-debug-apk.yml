@@ -25,15 +25,17 @@ jobs:
       - name: Test Aurora layout acceptance before building
         run: python3 tools/test_aurora_strip.py
 
-      - name: Verify real two-slot suggestion implementation is committed
+      - name: Verify critical Aurora fixes are present in the source
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          source = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java').read_text()
-          assert 'mSuggestionsCountInStrip = 2;' in source, 'Two suggestions are not committed to source'
-          assert 'mCenterSuggestionWeight = 0.50f;' in source, 'Suggestion slots are not equal width'
-          assert 'positionInStrip >= maxSuggestionInStrip' in source, 'Suggestion indexes lack bounds checking'
-          print('Committed two-slot source assertions passed')
+          suggestions = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java').read_text()
+          assert 'mSuggestionsCountInStrip = 2;' in suggestions, 'Two suggestions are not committed to source'
+          assert 'mCenterSuggestionWeight = 0.50f;' in suggestions, 'Suggestion slots are not equal width'
+          assert 'positionInStrip >= maxSuggestionInStrip' in suggestions, 'Suggestion indexes lack bounds checking'
+          emoji = Path('app/src/main/java/helium314/keyboard/latin/common/StringUtils.kt').read_text()
+          assert 'finalCodePoint in 0x1F3FB..0x1F3FF' in emoji, 'Emoji suffix repair missing'
+          print('Committed suggestion and emoji source assertions passed')
           PY
 
       - name: Run Android unit tests (fail build on regression)
