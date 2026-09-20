@@ -1,0 +1,96 @@
+name: Aurora Android emulator audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/aurora-emulator-audit.yml'
+      - 'app/**'
+      - 'tools/test_aurora_strip.py'
+
+jobs:
+  emulator-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Enable hardware acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Build Aurora matching the intended two-suggestion configuration
+        run: |
+          chmod +x gradlew
+          python3 tools/test_aurora_strip.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java')
+          original = p.read_text()
+          changes = [
+              ('        mSuggestionsCountInStrip = a.getInt(\n                R.styleable.SuggestionStripView_suggestionsCountInStrip,\n                DEFAULT_SUGGESTIONS_COUNT_IN_STRIP);',
+               '        mSuggestionsCountInStrip = 2; // Aurora Next: exactly two suggestions.'),
+              ('        mCenterSuggestionWeight = ResourceUtils.getFraction(a,\n                R.styleable.SuggestionStripView_centerSuggestionPercentile,\n                DEFAULT_CENTER_SUGGESTION_PERCENTILE);',
+               '        mCenterSuggestionWeight = 0.50f; // Both suggestions are equally wide.'),
+              ('            if (positionInStrip < 0) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);',
+               '            if (positionInStrip < 0 || positionInStrip >= maxSuggestionInStrip) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);'),
+          ]
+          for before, after in changes:
+              if original.count(before) != 1:
+                  raise SystemExit('Aurora suggestion patch no longer matches source: ' + before[:55])
+              original = original.replace(before, after, 1)
+          p.write_text(original)
+          print('Two-suggestion engine patched for emulator build')
+          PY
+          ./gradlew :app:assembleDebug --stacktrace
+      - name: Boot emulator and audit Android installation, Settings, and IME service
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            mkdir -p audit
+            apk=$(find app/build/outputs/apk/debug -name '*.apk' -print -quit)
+            test -n "$apk"
+            adb install -r "$apk" | tee audit/install.txt
+            PACKAGE=helium314.keyboard.auroranext
+            adb shell pm path "$PACKAGE" | tee audit/package.txt
+            grep -F 'package:' audit/package.txt
+            adb shell am start -W -n "$PACKAGE/helium314.keyboard.settings.SettingsActivity" | tee audit/start-settings.txt
+            sleep 5
+            adb shell pidof "$PACKAGE" | tee audit/settings-process.txt
+            grep -Eq '[0-9]+' audit/settings-process.txt
+            adb exec-out screencap -p > audit/settings-home.png
+            adb shell uiautomator dump /sdcard/aurora-window.xml || true
+            adb pull /sdcard/aurora-window.xml audit/settings-hierarchy.xml || true
+            adb shell input swipe 500 1700 500 550 500
+            sleep 2
+            adb exec-out screencap -p > audit/settings-scrolled.png
+            adb shell ime list -s | tee audit/ime-services.txt
+            IME="$PACKAGE/helium314.keyboard.latin.LatinIME"
+            grep -F "$IME" audit/ime-services.txt
+            adb shell ime enable "$IME" | tee audit/ime-enable.txt
+            adb shell ime set "$IME" | tee audit/ime-set.txt
+            adb shell dumpsys input_method > audit/input-method-dump.txt
+            grep -F "$PACKAGE" audit/input-method-dump.txt
+            adb logcat -d -v brief -s AndroidRuntime:E > audit/android-crashes.txt
+            if grep -F -A 40 'FATAL EXCEPTION' audit/android-crashes.txt | grep -F "$PACKAGE"; then
+              echo 'Aurora crashed during the emulator smoke audit'
+              exit 1
+            fi
+            echo 'Emulator install, Settings launch, and IME registration checks completed' | tee audit/result.txt
+      - name: Upload emulator screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-emulator-audit
+          path: audit/
+          if-no-files-found: warn
