@@ -13,8 +13,8 @@ android {
         applicationId = "helium314.keyboard"
         minSdk = 21
         targetSdk = 37
-        versionCode = 4102
-        versionName = "4.1.1"
+        versionCode = 4200
+        versionName = "4.2.0-aurora"
         ndk {
             abiFilters.clear()
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
@@ -36,11 +36,12 @@ android {
             isJniDebuggable = false
         }
         debug {
-            // "normal" debug has minify for smaller APK to fit the GitHub 25 MB limit when zipped
-            // and for better performance in case users want to install a debug APK
+            // GitHub's ephemeral debug signing keys change between workflow runs.
+            // A distinct install ID prevents an incompatible-signature attempt from silently
+            // leaving the old HeliBoard debug package installed instead of Aurora Next.
             isMinifyEnabled = true
             isJniDebuggable = false
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = ".auroranext"
         }
         create("runTests") { // build variant for running tests on CI that skips tests known to fail
             isMinifyEnabled = false
@@ -51,7 +52,7 @@ android {
             isMinifyEnabled = false
             isJniDebuggable = false
             signingConfig = signingConfigs.getByName("debug")
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = ".auroranext"
         }
 
         androidComponents.onVariants { variant: ApplicationVariant ->
@@ -65,7 +66,7 @@ android {
             }
             variant.outputs.forEach { output ->
                 if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
-                    output.outputFileName = "HeliBoard_${defaultConfig.versionName}-${variant.buildType}.apk"
+                    output.outputFileName = "AuroraNext_${defaultConfig.versionName}-${variant.buildType}.apk"
                 }
             }
         }
