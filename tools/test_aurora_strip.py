@@ -57,6 +57,17 @@ class AuroraLayoutTests(unittest.TestCase):
         self.assertIn('sv.mAddToPersonalDictionary', engine)
         self.assertIn('UserHistoryDictionary.addToDictionary', engine)
 
+    def test_aurora_colorful_rounded_theme_defaults_preserve_existing_settings(self):
+        app = (ROOT / 'app/src/main/java/helium314/keyboard/latin/App.kt').read_text()
+        themes = (ROOT / 'app/src/main/java/helium314/keyboard/keyboard/KeyboardTheme.kt').read_text()
+        self.assertIn('configureAuroraAppearance()', app)
+        self.assertIn('KeyboardTheme.STYLE_ROUNDED', app)
+        self.assertIn('KeyboardTheme.THEME_INDIGO', app)
+        self.assertIn('KeyboardTheme.THEME_OCEAN', app)
+        self.assertIn('preferences.contains(Settings.PREF_THEME_STYLE)', app)
+        self.assertIn('THEME_OCEAN -> DefaultColors(', themes)
+        self.assertIn('THEME_INDIGO -> DefaultColors(', themes)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
