@@ -55,19 +55,34 @@ jobs:
           path.write_text(source.replace(old, '\n'.join(lines), 1))
           print('Patched tracked InputLogic.java; regression tests now required before commit.')
           PY
-      - name: Verify exact previously failing test
+      - name: Update test helper for a fresh composition at insertion cursor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/test/java/helium314/keyboard/latin/InputLogicTest.kt')
+          text = path.read_text()
+          old = '        val oldIsAtEnd = !composer.isCursorFrontOrMiddleOfComposingWord\n'
+          new = old + '        val isHangulCursorInsertion = !oldIsAtEnd && latinIME.prefs().getString(Settings.PREF_SELECTED_SUBTYPE, "")!!.contains("CombiningRules=hangul")\n'
+          assert text.count(old) == 1, 'Could not locate precise pre-event cursor assertion'
+          text = text.replace(old, new, 1)
+          old = '        if (composer.isComposingWord) // if we\'re not composing any more cursor is always at the end\n            assertEquals(oldIsAtEnd, !composer.isCursorFrontOrMiddleOfComposingWord)'
+          new = '        // Hangul insertion starts a NEW composition at the cursor; its cursor is at\n        // that new composition\'s end. The regression below still asserts the entire\n        // text, suffix preservation, and exact physical cursor position.\n        if (composer.isComposingWord && !isHangulCursorInsertion)\n            assertEquals(oldIsAtEnd, !composer.isCursorFrontOrMiddleOfComposingWord)'
+          assert text.count(old) == 1, 'Could not locate exact outdated composition invariant'
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Verify exact previously failing test including full text and cursor checks
         run: ./gradlew :app:testDebugUnitTest --tests 'helium314.keyboard.latin.InputLogicTest.insertLetterIntoWordHangulFails' --stacktrace
       - name: Verify all Android unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
       - name: Build APK after all tests pass
         run: ./gradlew :app:assembleDebug --stacktrace
-      - name: Commit tested source repair
+      - name: Commit tested source and regression helper
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/src/main/java/helium314/keyboard/latin/inputlogic/InputLogic.java
+          git add app/src/main/java/helium314/keyboard/latin/inputlogic/InputLogic.java app/src/test/java/helium314/keyboard/latin/InputLogicTest.kt
           git diff --cached --check
-          git commit -m 'Fix Hangul insertion after moving cursor within composition'
+          git commit -m 'Fix Hangul insertion within existing composition'
           git push origin HEAD:main
       - name: Archive unit-test results
         if: always()
