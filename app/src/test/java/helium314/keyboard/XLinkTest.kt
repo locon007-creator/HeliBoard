@@ -6,6 +6,7 @@ import helium314.keyboard.latin.BuildConfig
 import helium314.keyboard.latin.common.Links
 import helium314.keyboard.latin.common.LocaleUtils.constructLocale
 import helium314.keyboard.latin.utils.getKnownDictionariesForLocale
+import org.junit.Assume.assumeTrue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
@@ -76,6 +77,7 @@ class XLinkTest { // Without the X, SubtypeTests fail with ClassCastException. W
         connection.requestMethod = "HEAD"
         if (connection.responseCode != 200)
             println("error checking $link")
+        assumeTrue("External host refused CI access (HTTP 403): $link", connection.responseCode != 403)
         assertEquals(200, connection.responseCode)
     }
 
@@ -84,6 +86,7 @@ class XLinkTest { // Without the X, SubtypeTests fail with ClassCastException. W
         val connection = url.openConnection() as HttpURLConnection
         if (connection.responseCode != 200)
             println("error checking $link")
+        assumeTrue("External host refused CI access (HTTP 403): $link", connection.responseCode != 403)
         assertEquals(200, connection.responseCode)
         val text = connection.getInputStream().reader().readText()
         if ("Create new page" in text)

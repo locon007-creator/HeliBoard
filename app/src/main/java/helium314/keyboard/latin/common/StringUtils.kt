@@ -67,7 +67,17 @@ fun hasLetterBeforeLastSpaceBeforeCursor(text: CharSequence): Boolean {
 // todo: this is now only used for tests, do we actually need it?
 fun getFullEmojiAtEnd(text: CharSequence): String {
     val lastGrapheme = text.toString().lastGrapheme
-    return if (isEmoji(lastGrapheme)) lastGrapheme else ""
+    if (isEmoji(lastGrapheme)) return lastGrapheme
+    // An invalid emoji-plus-skin-tone combination is not one emoji; still detect
+    // a trailing modifier as its own code point instead of dropping it.
+    if (text.isNotEmpty()) {
+        val finalCodePoint = Character.codePointBefore(text, text.length)
+        if (finalCodePoint in 0x1F3FB..0x1F3FF) {
+            val modifier = String(Character.toChars(finalCodePoint))
+            if (isEmoji(modifier)) return modifier
+        }
+    }
+    return ""
 }
 
 /**

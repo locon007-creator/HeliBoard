@@ -44,6 +44,7 @@ import kotlin.streams.asSequence
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(shadows = [
@@ -675,10 +676,12 @@ class InputLogicTest {
     }
 
     @Test fun timestamp() {
+        val before = System.currentTimeMillis() - 1000 // formatter has whole-second precision
         chainInput("hello")
         functionalKeyPress(KeyCode.TIMESTAMP)
-        assertEquals(Calendar.getInstance().time.time.toDouble(),
-            getTimestampFormatter(latinIME).parse(text.substring(5))!!.time.toDouble(), 1000.0)
+        val after = System.currentTimeMillis()
+        val inserted = getTimestampFormatter(latinIME).parse(text.substring(5))!!.time
+        assertTrue(inserted in before..after, "Inserted timestamp must reflect test execution time")
     }
 
     @Test fun inlineEmojiSearchStart() {
