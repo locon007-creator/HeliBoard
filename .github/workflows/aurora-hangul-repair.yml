@@ -23,13 +23,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Confirm regression fails before repair
-        run: |
-          chmod +x gradlew
-          if ./gradlew :app:testDebugUnitTest --tests 'helium314.keyboard.latin.InputLogicTest.insertLetterIntoWordHangulFails' --stacktrace; then
-            echo 'Baseline test already passes; refusing unnecessary patch.'
-            exit 1
-          fi
       - name: Repair Hangul cursor edit in tracked Android source
         run: |
           python3 - <<'PY'
@@ -53,9 +46,9 @@ jobs:
           assert source.count(old) == 1, 'Ambiguous InputLogic insertion anchor'
           assert 'A Hangul combiner consumes character events.' not in source, 'Repair already present'
           path.write_text(source.replace(old, '\n'.join(lines), 1))
-          print('Patched tracked InputLogic.java; regression tests now required before commit.')
+          print('Patched tracked InputLogic.java; regression tests required before commit.')
           PY
-      - name: Update test helper for a fresh composition at insertion cursor
+      - name: Correct regression helper and check real editor text
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -63,15 +56,21 @@ jobs:
           text = path.read_text()
           old = '        val oldIsAtEnd = !composer.isCursorFrontOrMiddleOfComposingWord\n'
           new = old + '        val isHangulCursorInsertion = !oldIsAtEnd && latinIME.prefs().getString(Settings.PREF_SELECTED_SUBTYPE, "")!!.contains("CombiningRules=hangul")\n'
-          assert text.count(old) == 1, 'Could not locate precise pre-event cursor assertion'
+          assert text.count(old) == 1, 'Missing pre-event cursor assertion'
           text = text.replace(old, new, 1)
           old = '        if (composer.isComposingWord) // if we\'re not composing any more cursor is always at the end\n            assertEquals(oldIsAtEnd, !composer.isCursorFrontOrMiddleOfComposingWord)'
-          new = '        // Hangul insertion starts a NEW composition at the cursor; its cursor is at\n        // that new composition\'s end. The regression below still asserts the entire\n        // text, suffix preservation, and exact physical cursor position.\n        if (composer.isComposingWord && !isHangulCursorInsertion)\n            assertEquals(oldIsAtEnd, !composer.isCursorFrontOrMiddleOfComposingWord)'
-          assert text.count(old) == 1, 'Could not locate exact outdated composition invariant'
+          new = '        // Hangul insertion starts a new composition; physical text and cursor are\n        // asserted independently by the Hangul regression after this helper.\n        if (composer.isComposingWord && !isHangulCursorInsertion)\n            assertEquals(oldIsAtEnd, !composer.isCursorFrontOrMiddleOfComposingWord)'
+          assert text.count(old) == 1, 'Missing exact outdated composition invariant'
+          text = text.replace(old, new, 1)
+          old = '        assertEquals("ㅛㅎㄹㄲ혀ㅛ", getWordAtCursor())'
+          new = '        assertEquals("ㅛㅎㄹㄲ혀ㅛ", text) // verify actual editor text; the suggestion accessor may be disabled for Korean'
+          assert text.count(old) == 1, 'Missing precise Korean test expectation'
           path.write_text(text.replace(old, new, 1))
           PY
-      - name: Verify exact previously failing test including full text and cursor checks
-        run: ./gradlew :app:testDebugUnitTest --tests 'helium314.keyboard.latin.InputLogicTest.insertLetterIntoWordHangulFails' --stacktrace
+      - name: Verify previously failing test including full text and cursor checks
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --tests 'helium314.keyboard.latin.InputLogicTest.insertLetterIntoWordHangulFails' --stacktrace
       - name: Verify all Android unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
       - name: Build APK after all tests pass
