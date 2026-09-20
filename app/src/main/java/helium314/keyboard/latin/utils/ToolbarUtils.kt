@@ -86,8 +86,8 @@ fun getCodeForToolbarKey(key: ToolbarKey) = Settings.getInstance().getCustomTool
     DOWN -> KeyCode.ARROW_DOWN
     WORD_LEFT -> KeyCode.WORD_LEFT
     WORD_RIGHT -> KeyCode.WORD_RIGHT
-    PAGE_UP -> KeyCode.PAGE_UP
-    PAGE_DOWN -> KeyCode.PAGE_DOWN
+    PAGE_UP -> KeyCode.MOVE_START_OF_PAGE
+    PAGE_DOWN -> KeyCode.MOVE_END_OF_PAGE
     FULL_LEFT -> KeyCode.MOVE_START_OF_LINE
     FULL_RIGHT -> KeyCode.MOVE_END_OF_LINE
     PAGE_START -> KeyCode.MOVE_START_OF_PAGE
@@ -131,7 +131,8 @@ enum class ToolbarMode {
 val toolbarKeyStrings = entries.associateWithTo(EnumMap(ToolbarKey::class.java)) { it.toString().lowercase(Locale.US) }
 
 val defaultToolbarPref by lazy {
-    val default = listOf(SETTINGS, VOICE, CLIPBOARD, UNDO, REDO, SELECT_WORD, COPY, PASTE, LEFT, RIGHT)
+    // Aurora Next: only expose working controls. Voice input is not included until implemented.
+    val default = listOf(SETTINGS, CLIPBOARD, UNDO, REDO, SELECT_WORD, COPY, PASTE, LEFT, RIGHT)
     val others = entries.filterNot { it in default || it == CLOSE_HISTORY }
     default.joinToString(Separators.ENTRY) { it.name + Separators.KV + true } + Separators.ENTRY +
             others.joinToString(Separators.ENTRY) { it.name + Separators.KV + false }
@@ -214,7 +215,7 @@ private fun getEnabledToolbarKeys(prefs: SharedPreferences, pref: String, defaul
                 null
             }
         } else null
-    }
+    }.filterNot { it == ToolbarKey.VOICE } // Aurora Next: never show an unimplemented microphone
 }
 
 fun writeCustomKeyCodes(prefs: SharedPreferences, codes: EnumMap<ToolbarKey, Pair<Int?, Int?>>) {
