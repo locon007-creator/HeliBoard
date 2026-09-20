@@ -25,34 +25,15 @@ jobs:
       - name: Test Aurora layout acceptance before building
         run: python3 tools/test_aurora_strip.py
 
-      - name: Apply and verify Aurora Next two-slot suggestion engine
+      - name: Verify real two-slot suggestion implementation is committed
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java')
-          source = p.read_text()
-          replacements = [
-              (
-                  '        mSuggestionsCountInStrip = a.getInt(\n                R.styleable.SuggestionStripView_suggestionsCountInStrip,\n                DEFAULT_SUGGESTIONS_COUNT_IN_STRIP);',
-                  '        mSuggestionsCountInStrip = 2; // Aurora Next: exactly two suggestions.',
-              ),
-              (
-                  '        mCenterSuggestionWeight = ResourceUtils.getFraction(a,\n                R.styleable.SuggestionStripView_centerSuggestionPercentile,\n                DEFAULT_CENTER_SUGGESTION_PERCENTILE);',
-                  '        mCenterSuggestionWeight = 0.50f; // Both suggestions are equally wide.',
-              ),
-              (
-                  '            if (positionInStrip < 0) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);',
-                  '            if (positionInStrip < 0 || positionInStrip >= maxSuggestionInStrip) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);',
-              ),
-          ]
-          for old, new in replacements:
-              if source.count(old) != 1:
-                  raise SystemExit(f'Expected exactly one matching Aurora patch site, found {source.count(old)}: {old[:70]!r}')
-              source = source.replace(old, new, 1)
-          p.write_text(source)
-          assert 'mSuggestionsCountInStrip = 2;' in p.read_text()
-          assert 'positionInStrip >= maxSuggestionInStrip' in p.read_text()
-          print('Aurora Next suggestion engine: two equal slots, bounded indexes, patch verified')
+          source = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java').read_text()
+          assert 'mSuggestionsCountInStrip = 2;' in source, 'Two suggestions are not committed to source'
+          assert 'mCenterSuggestionWeight = 0.50f;' in source, 'Suggestion slots are not equal width'
+          assert 'positionInStrip >= maxSuggestionInStrip' in source, 'Suggestion indexes lack bounds checking'
+          print('Committed two-slot source assertions passed')
           PY
 
       - name: Run Android unit tests (fail build on regression)
