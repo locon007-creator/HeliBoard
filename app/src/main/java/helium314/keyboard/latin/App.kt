@@ -3,6 +3,7 @@ package helium314.keyboard.latin
 
 import android.app.Application
 import android.os.Build
+import helium314.keyboard.keyboard.KeyboardTheme
 import helium314.keyboard.keyboard.emoji.SupportedEmojis
 import helium314.keyboard.latin.common.Constants.Subtype.ExtraValue
 import helium314.keyboard.latin.define.DebugFlags
@@ -47,6 +48,7 @@ class App : Application() {
         checkVersionUpgrade(this)
         configureAuroraLanguages()
         configureAuroraLearning()
+        configureAuroraAppearance()
         if (BuildConfig.DEBUG) // do this on every debug apk start because we may work on adding a new toolbar key
             upgradeToolbarPrefs(prefs())
         transferOldPinnedClips(this) // todo: remove in a few months, maybe end 2026
@@ -112,6 +114,22 @@ class App : Application() {
         if (!preferences.contains(Settings.PREF_ADD_TO_PERSONAL_DICTIONARY)) {
             preferences.edit().putBoolean(Settings.PREF_ADD_TO_PERSONAL_DICTIONARY, true).apply()
         }
+    }
+
+    /** First launch looks like Aurora, while user-selected themes always take precedence. */
+    private fun configureAuroraAppearance() {
+        val preferences = prefs()
+        val editor = preferences.edit()
+        if (!preferences.contains(Settings.PREF_THEME_STYLE)) {
+            editor.putString(Settings.PREF_THEME_STYLE, KeyboardTheme.STYLE_ROUNDED)
+        }
+        if (!preferences.contains(Settings.PREF_THEME_COLORS)) {
+            editor.putString(Settings.PREF_THEME_COLORS, KeyboardTheme.THEME_INDIGO)
+        }
+        if (!preferences.contains(Settings.PREF_THEME_COLORS_NIGHT)) {
+            editor.putString(Settings.PREF_THEME_COLORS_NIGHT, KeyboardTheme.THEME_OCEAN)
+        }
+        editor.apply()
     }
 
     companion object {
