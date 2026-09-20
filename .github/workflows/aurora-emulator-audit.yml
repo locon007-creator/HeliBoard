@@ -23,28 +23,17 @@ jobs:
       - name: Enable hardware acceleration
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
-      - name: Build Aurora matching the intended two-suggestion configuration
+      - name: Build verified two-suggestion source
         run: |
           chmod +x gradlew
           python3 tools/test_aurora_strip.py
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java')
-          original = p.read_text()
-          changes = [
-              ('        mSuggestionsCountInStrip = a.getInt(\n                R.styleable.SuggestionStripView_suggestionsCountInStrip,\n                DEFAULT_SUGGESTIONS_COUNT_IN_STRIP);',
-               '        mSuggestionsCountInStrip = 2; // Aurora Next: exactly two suggestions.'),
-              ('        mCenterSuggestionWeight = ResourceUtils.getFraction(a,\n                R.styleable.SuggestionStripView_centerSuggestionPercentile,\n                DEFAULT_CENTER_SUGGESTION_PERCENTILE);',
-               '        mCenterSuggestionWeight = 0.50f; // Both suggestions are equally wide.'),
-              ('            if (positionInStrip < 0) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);',
-               '            if (positionInStrip < 0 || positionInStrip >= maxSuggestionInStrip) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);'),
-          ]
-          for before, after in changes:
-              if original.count(before) != 1:
-                  raise SystemExit('Aurora suggestion patch no longer matches source: ' + before[:55])
-              original = original.replace(before, after, 1)
-          p.write_text(original)
-          print('Two-suggestion engine patched for emulator build')
+          source = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java').read_text()
+          assert 'mSuggestionsCountInStrip = 2;' in source
+          assert 'mCenterSuggestionWeight = 0.50f;' in source
+          assert 'positionInStrip >= maxSuggestionInStrip' in source
+          print('Committed two-slot source verified')
           PY
           ./gradlew :app:assembleDebug --stacktrace
       - name: Boot emulator and audit Android installation, Settings, and IME service
