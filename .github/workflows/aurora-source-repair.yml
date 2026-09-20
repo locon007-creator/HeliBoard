@@ -1,0 +1,65 @@
+name: Aurora source repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/aurora-source-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  source-repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Repair underlying suggestion code and broken documentation URLs
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          suggestion = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java')
+          content = suggestion.read_text()
+          edits = [
+              ('        mSuggestionsCountInStrip = a.getInt(\n                R.styleable.SuggestionStripView_suggestionsCountInStrip,\n                DEFAULT_SUGGESTIONS_COUNT_IN_STRIP);',
+               '        mSuggestionsCountInStrip = 2; // Aurora Next: exactly two suggestions.'),
+              ('        mCenterSuggestionWeight = ResourceUtils.getFraction(a,\n                R.styleable.SuggestionStripView_centerSuggestionPercentile,\n                DEFAULT_CENTER_SUGGESTION_PERCENTILE);',
+               '        mCenterSuggestionWeight = 0.50f; // Both suggestions are equally wide.'),
+              ('            if (positionInStrip < 0) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);',
+               '            if (positionInStrip < 0 || positionInStrip >= maxSuggestionInStrip) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);'),
+          ]
+          for old, new in edits:
+              if content.count(old) == 1:
+                  content = content.replace(old, new, 1)
+              elif new not in content:
+                  raise SystemExit('Suggestion source unexpectedly changed: ' + old[:65])
+          suggestion.write_text(content)
+          old_url = 'https://roccobot.github.io/HeliBoard-RLM/'
+          new_url = 'https://github.com/HeliBorg/HeliBoard/discussions/2494'
+          for name in ('README.md', 'layouts.md'):
+              path = Path(name)
+              content = path.read_text()
+              if old_url not in content and new_url not in content:
+                  raise SystemExit('No documented RLM URL found in ' + name)
+              path.write_text(content.replace(old_url, new_url))
+          assert 'mSuggestionsCountInStrip = 2;' in suggestion.read_text()
+          for name in ('README.md', 'layouts.md'):
+              assert old_url not in Path(name).read_text()
+          print('Real suggestion source and two dead documentation URLs repaired')
+          PY
+          git diff --check
+          git diff --stat
+      - name: Commit source repairs
+        run: |
+          set -euo pipefail
+          git add app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java README.md layouts.md
+          if git diff --cached --quiet; then
+            echo 'No changes needed'
+          else
+            git -c user.name='aurora-ci' -c user.email='aurora-ci@users.noreply.github.com' commit -m 'Commit two-slot suggestion logic to source and repair dead layout-maker links'
+            git push origin HEAD:main
+          fi
