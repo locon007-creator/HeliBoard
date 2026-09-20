@@ -46,6 +46,7 @@ class App : Application() {
         RichInputMethodManager.init(this)
         checkVersionUpgrade(this)
         configureAuroraLanguages()
+        configureAuroraLearning()
         if (BuildConfig.DEBUG) // do this on every debug apk start because we may work on adding a new toolbar key
             upgradeToolbarPrefs(prefs())
         transferOldPinnedClips(this) // todo: remove in a few months, maybe end 2026
@@ -101,6 +102,16 @@ class App : Application() {
         addSecondaryLanguage("en-US", "es-419")
         addSecondaryLanguage("es-419", "en-US")
         preferences.edit().putBoolean(bilingualKey, true).apply()
+    }
+
+    /** Word-history learning already exists. Allow repeated unfamiliar words to enter the
+     * on-device personal dictionary only if the user has not chosen a different setting.
+     */
+    private fun configureAuroraLearning() {
+        val preferences = prefs()
+        if (!preferences.contains(Settings.PREF_ADD_TO_PERSONAL_DICTIONARY)) {
+            preferences.edit().putBoolean(Settings.PREF_ADD_TO_PERSONAL_DICTIONARY, true).apply()
+        }
     }
 
     companion object {
