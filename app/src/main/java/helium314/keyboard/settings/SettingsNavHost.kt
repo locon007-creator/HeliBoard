@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -49,7 +50,6 @@ fun SettingsNavHost(
     val dir = if (LocalLayoutDirection.current == LayoutDirection.Ltr) 1 else -1
     val target = SettingsDestination.navTarget.collectAsState()
 
-    // duration does not change when system setting changes, but that's rare enough to not care
     val duration = (250 * getTransitionAnimationScale(LocalContext.current)).toInt()
     val animation = tween<IntOffset>(durationMillis = duration)
 
@@ -81,55 +81,26 @@ fun SettingsNavHost(
                 onClickBack = ::goBack,
             )
         }
-        composable(SettingsDestination.About) {
-            AboutScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.TextCorrection) {
-            TextCorrectionScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.Preferences) {
-            PreferencesScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.Toolbar) {
-            ToolbarScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.GestureTyping) {
-            GestureTypingScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.DataGathering) {
-            GestureDataScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.DataReview) {
-            ReviewScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.Advanced) {
-            AdvancedSettingsScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.Debug) {
-            DebugScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.Appearance) {
-            AppearanceScreen(onClickBack = ::goBack)
-        }
+        composable(SettingsDestination.About) { AboutScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.TextCorrection) { TextCorrectionScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.Preferences) { PreferencesScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.Toolbar) { ToolbarScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.GestureTyping) { GestureTypingScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.DataGathering) { GestureDataScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.DataReview) { ReviewScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.Advanced) { AdvancedSettingsScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.Debug) { DebugScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.Appearance) { AppearanceScreen(onClickBack = ::goBack) }
         composable(SettingsDestination.PersonalDictionary + "{locale}") {
             val locale = it.arguments?.getString("locale")?.takeIf { loc -> loc.isNotBlank() }?.constructLocale()
-            PersonalDictionaryScreen(
-                onClickBack = ::goBack,
-                locale = locale
-            )
+            PersonalDictionaryScreen(onClickBack = ::goBack, locale = locale)
         }
         composable(SettingsDestination.PersonalDictionaries) {
             PersonalDictionariesScreen(onClickBack = ::goBack)
         }
-        composable(SettingsDestination.Languages) {
-            LanguageScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.Dictionaries) {
-            DictionaryScreen(onClickBack = ::goBack)
-        }
-        composable(SettingsDestination.Layouts) {
-            SecondaryLayoutScreen(onClickBack = ::goBack)
-        }
+        composable(SettingsDestination.Languages) { LanguageScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.Dictionaries) { DictionaryScreen(onClickBack = ::goBack) }
+        composable(SettingsDestination.Layouts) { SecondaryLayoutScreen(onClickBack = ::goBack) }
         composable(SettingsDestination.Colors + "{theme}") {
             ColorsScreen(isNight = false, theme = it.arguments?.getString("theme"), onClickBack = ::goBack)
         }
@@ -140,8 +111,17 @@ fun SettingsNavHost(
             SubtypeScreen(initialSubtype = it.arguments?.getString("subtype")!!.toSettingsSubtype(), onClickBack = ::goBack)
         }
     }
-    if (target.value != SettingsDestination.Settings/* && target.value != navController.currentBackStackEntry?.destination?.route*/)
-        navController.navigate(route = target.value)
+
+    // Navigating directly during composition can run more than once when settings recompose.
+    // Handle navigation in an effect and avoid adding an identical destination to the stack.
+    val destination = target.value
+    LaunchedEffect(destination) {
+        if (destination != SettingsDestination.Settings &&
+            navController.currentDestination?.route != destination
+        ) {
+            navController.navigate(route = destination) { launchSingleTop = true }
+        }
+    }
 }
 
 object SettingsDestination {
@@ -151,8 +131,8 @@ object SettingsDestination {
     const val Preferences = "preferences"
     const val Toolbar = "toolbar"
     const val GestureTyping = "gesture_typing"
-    const val DataGathering = "data_gathering" // remove when data gathering phase is done (end of 2026 latest)
-    const val DataReview = "data_review" // remove when data gathering phase is done (end of 2026 latest)
+    const val DataGathering = "data_gathering"
+    const val DataReview = "data_review"
     const val Advanced = "advanced"
     const val Debug = "debug"
     const val Appearance = "appearance"
@@ -169,11 +149,11 @@ object SettingsDestination {
     private val navScope = CoroutineScope(Dispatchers.Default)
     fun navigateTo(target: String) {
         if (navTarget.value == target) {
-            // triggers recompose twice, but that's ok as it's a rare event
             navTarget.value = Settings
             navScope.launch { delay(10); navTarget.value = target }
-        } else
+        } else {
             navTarget.value = target
+        }
         navScope.launch { delay(50); navTarget.value = Settings }
     }
 }
