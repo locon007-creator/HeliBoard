@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
-"""Source-level regression tests for the Aurora keyboard strip.
-
-These checks do not replace Android-device interaction tests.
-"""
+"""Source-level Aurora acceptance checks; device behavior requires separate testing."""
 from pathlib import Path
-import re
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -29,6 +25,18 @@ class AuroraLayoutTests(unittest.TestCase):
     def test_permanent_number_row_enabled_in_defaults(self):
         defaults = (ROOT / 'app/src/main/java/helium314/keyboard/latin/settings/Defaults.kt').read_text()
         self.assertRegex(defaults, r'const val PREF_SHOW_NUMBER_ROW\s*=\s*true\b')
+
+    def test_english_and_latin_american_spanish_are_enabled_on_startup(self):
+        method = ET.parse(ROOT / 'app/src/main/res/xml/method.xml').getroot()
+        available = {node.get(ANDROID + 'languageTag') for node in method if node.tag == 'subtype'}
+        self.assertIn('en-US', available)
+        self.assertIn('es-419', available)
+        self.assertTrue((ROOT / 'app/src/main/assets/dicts/main_en-US.dict').is_file())
+        self.assertTrue((ROOT / 'app/src/main/assets/dicts/main_es.dict').is_file())
+        app = (ROOT / 'app/src/main/java/helium314/keyboard/latin/App.kt').read_text()
+        self.assertIn('configureAuroraLanguages()', app)
+        self.assertIn('SubtypeSettings.addEnabledSubtype', app)
+        self.assertIn('es-419', app)
 
 
 if __name__ == '__main__':
