@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aurora_settings_intro">Set up your keyboard in a few taps.</string>
+    <string name="aurora_settings_typing">Typing and languages</string>
+    <string name="aurora_settings_personalize">Appearance and tools</string>
+    <string name="aurora_settings_more">More settings</string>
+    <string name="aurora_settings_more_description">Layouts, gesture typing, advanced options and app information</string>
+    <string name="aurora_settings_languages_description">English, Spanish and keyboard layouts</string>
+    <string name="aurora_settings_correction_description">Word predictions, autocorrect and learned words</string>
+    <string name="aurora_settings_preferences_description">Number row, key behavior and clipboard history</string>
+    <string name="aurora_settings_appearance_description">Themes, colors and keyboard size</string>
+    <string name="aurora_settings_toolbar_description">Customize shortcuts above the keys</string>
+    <string name="aurora_settings_dictionary_description">Install and manage offline language dictionaries</string>
+</resources>
