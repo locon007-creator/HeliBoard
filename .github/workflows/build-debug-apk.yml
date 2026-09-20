@@ -22,13 +22,43 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Apply and verify Aurora Next two-slot suggestion engine
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/helium314/keyboard/latin/suggestions/SuggestionStripLayoutHelper.java')
+          source = p.read_text()
+          replacements = [
+              (
+                  '        mSuggestionsCountInStrip = a.getInt(\n                R.styleable.SuggestionStripView_suggestionsCountInStrip,\n                DEFAULT_SUGGESTIONS_COUNT_IN_STRIP);',
+                  '        mSuggestionsCountInStrip = 2; // Aurora Next: exactly two suggestions.',
+              ),
+              (
+                  '        mCenterSuggestionWeight = ResourceUtils.getFraction(a,\n                R.styleable.SuggestionStripView_centerSuggestionPercentile,\n                DEFAULT_CENTER_SUGGESTION_PERCENTILE);',
+                  '        mCenterSuggestionWeight = 0.50f; // Both suggestions are equally wide.',
+              ),
+              (
+                  '            if (positionInStrip < 0) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);',
+                  '            if (positionInStrip < 0 || positionInStrip >= maxSuggestionInStrip) {\n                continue;\n            }\n            final TextView wordView = mWordViews.get(positionInStrip);',
+              ),
+          ]
+          for old, new in replacements:
+              if source.count(old) != 1:
+                  raise SystemExit(f'Expected exactly one matching Aurora patch site, found {source.count(old)}: {old[:70]!r}')
+              source = source.replace(old, new, 1)
+          p.write_text(source)
+          assert 'mSuggestionsCountInStrip = 2;' in p.read_text()
+          assert 'positionInStrip >= maxSuggestionInStrip' in p.read_text()
+          print('Aurora Next suggestion engine: two equal slots, bounded indexes, patch verified')
+          PY
+
       - name: Build with Gradle
         run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HeliBoard-debug
+          name: AuroraNext-debug
           path: app/build/outputs/apk/debug/*-debug*.apk
           if-no-files-found: error
 
