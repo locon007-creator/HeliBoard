@@ -8,6 +8,7 @@ on:
       - '.github/workflows/aurora-emulator-audit.yml'
       - 'app/**'
       - 'tools/test_aurora_strip.py'
+      - 'tools/aurora_emulator_audit.sh'
 
 jobs:
   emulator-audit:
@@ -20,9 +21,11 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Enable hardware acceleration
+      - name: Enable hardware acceleration and record environment
         run: |
+          mkdir -p audit
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+          { uname -a; ls -l /dev/kvm 2>&1 || true; df -h .; } > audit/environment.txt
       - name: Verify acceptance checks, all Android unit tests, and build APK
         run: |
           chmod +x gradlew
@@ -43,57 +46,18 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          emulator-boot-timeout: 600
           disable-animations: true
-          script: |
-            set -euo pipefail
-            mkdir -p audit
-            apk=$(find app/build/outputs/apk/debug -name '*.apk' -print -quit)
-            test -n "$apk"
-            adb install -r "$apk" | tee audit/install.txt
-            PACKAGE=helium314.keyboard.auroranext
-            adb shell pm path "$PACKAGE" | tee audit/package.txt
-            grep -F 'package:' audit/package.txt
-            adb shell dumpsys package "$PACKAGE" > audit/package-dump.txt
-            adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" | tee audit/resolved-launcher.txt
-            adb logcat -c
-            adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" | tee audit/start-settings.txt
-            sleep 5
-            adb logcat -d -v time -s AndroidRuntime:E ActivityManager:E ActivityTaskManager:E > audit/android-crashes.txt
-            adb shell dumpsys activity activities > audit/activity-dump.txt
-            adb shell ps -A > audit/processes.txt
-            adb exec-out screencap -p > audit/settings-home.png
-            adb shell pidof "$PACKAGE" > audit/settings-process.txt || true
-            if ! grep -Eq '[0-9]+' audit/settings-process.txt; then
-              echo 'Aurora Settings process not running after launch; see Android diagnostics.' | tee audit/result.txt
-              cat audit/android-crashes.txt
-              exit 1
-            fi
-            adb shell uiautomator dump /sdcard/aurora-window.xml || true
-            adb pull /sdcard/aurora-window.xml audit/settings-hierarchy.xml || true
-            adb shell input swipe 500 1700 500 550 500
-            sleep 2
-            adb exec-out screencap -p > audit/settings-scrolled.png
-            adb shell ime list -s | tee audit/ime-services.txt
-            IME=$(grep -F "$PACKAGE/" audit/ime-services.txt | head -n 1 | tr -d '\r')
-            test -n "$IME"
-            adb shell ime enable "$IME" | tee audit/ime-enable.txt
-            adb shell ime set "$IME" | tee audit/ime-set.txt
-            adb shell dumpsys input_method > audit/input-method-dump.txt
-            grep -F "$PACKAGE" audit/input-method-dump.txt
-            grep -F "$IME" audit/input-method-dump.txt
-            adb logcat -d -v brief -s AndroidRuntime:E > audit/android-crashes.txt
-            if grep -F -A 40 'FATAL EXCEPTION' audit/android-crashes.txt | grep -F "$PACKAGE"; then
-              echo 'Aurora crashed during the emulator smoke audit'
-              exit 1
-            fi
-            echo 'Emulator install, Settings launch, IME registration and selection checks completed; typing and predictions need separate device verification.' | tee audit/result.txt
+          # The action executes every line of script separately under POSIX sh.
+          # Invoke one Bash file to preserve variables, pipes, traps and exit status.
+          script: bash tools/aurora_emulator_audit.sh
       - name: Upload emulator screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: aurora-emulator-audit
           path: audit/
-          if-no-files-found: warn
+          if-no-files-found: error
       - name: Archive Android unit-test results
         if: always()
         uses: actions/upload-artifact@v4
