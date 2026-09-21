@@ -23,7 +23,7 @@ jobs:
       - name: Enable hardware acceleration
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
-      - name: Build verified two-suggestion source
+      - name: Verify acceptance checks, all Android unit tests, and build APK
         run: |
           chmod +x gradlew
           python3 tools/test_aurora_strip.py
@@ -35,7 +35,7 @@ jobs:
           assert 'positionInStrip >= maxSuggestionInStrip' in source
           print('Committed two-slot source verified')
           PY
-          ./gradlew :app:assembleDebug --stacktrace
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
       - name: Boot emulator and audit Android installation, Settings, and IME service
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -58,14 +58,13 @@ jobs:
             adb logcat -c
             adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" | tee audit/start-settings.txt
             sleep 5
-            # Collect diagnostics before assertions: a crash must not prevent the log from being uploaded.
             adb logcat -d -v time -s AndroidRuntime:E ActivityManager:E ActivityTaskManager:E > audit/android-crashes.txt
             adb shell dumpsys activity activities > audit/activity-dump.txt
             adb shell ps -A > audit/processes.txt
             adb exec-out screencap -p > audit/settings-home.png
             adb shell pidof "$PACKAGE" > audit/settings-process.txt || true
             if ! grep -Eq '[0-9]+' audit/settings-process.txt; then
-              echo 'Aurora Settings process not running after launch; see uploaded Android crash and activity diagnostics.' | tee audit/result.txt
+              echo 'Aurora Settings process not running after launch; see Android diagnostics.' | tee audit/result.txt
               cat audit/android-crashes.txt
               exit 1
             fi
@@ -81,12 +80,13 @@ jobs:
             adb shell ime set "$IME" | tee audit/ime-set.txt
             adb shell dumpsys input_method > audit/input-method-dump.txt
             grep -F "$PACKAGE" audit/input-method-dump.txt
+            grep -F "$IME" audit/input-method-dump.txt
             adb logcat -d -v brief -s AndroidRuntime:E > audit/android-crashes.txt
             if grep -F -A 40 'FATAL EXCEPTION' audit/android-crashes.txt | grep -F "$PACKAGE"; then
               echo 'Aurora crashed during the emulator smoke audit'
               exit 1
             fi
-            echo 'Emulator install, Settings launch, and IME registration checks completed' | tee audit/result.txt
+            echo 'Emulator install, Settings launch, IME registration and selection checks completed; typing and predictions need separate device verification.' | tee audit/result.txt
       - name: Upload emulator screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,3 +94,17 @@ jobs:
           name: aurora-emulator-audit
           path: audit/
           if-no-files-found: warn
+      - name: Archive Android unit-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-emulator-unit-tests
+          path: app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+      - name: Archive emulator-audited APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aurora-emulator-audited-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
