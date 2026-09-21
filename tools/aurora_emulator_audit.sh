@@ -22,8 +22,13 @@ adb shell dumpsys package "$PACKAGE" > audit/package-dump.txt
 
 stage='launching Aurora Settings activity'
 adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" | tee audit/resolved-launcher.txt
+# The package-only implicit MAIN/LAUNCHER intent cannot be launched with `am start`
+# on this emulator, even though resolve-activity finds the component. Launch the
+# concrete manifest-declared launcher component, just as a home launcher does.
+COMPONENT="$PACKAGE/helium314.keyboard.settings.SettingsActivity"
+grep -F "$COMPONENT" audit/resolved-launcher.txt
 adb logcat -c
-adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PACKAGE" | tee audit/start-settings.txt
+adb shell am start -W -n "$COMPONENT" | tee audit/start-settings.txt
 sleep 5
 adb logcat -d -v time -s AndroidRuntime:E ActivityManager:E ActivityTaskManager:E > audit/android-crashes.txt
 adb shell dumpsys activity activities > audit/activity-dump.txt
